@@ -82,7 +82,7 @@ def main():
         # was sent. We need to have separate indexes for each command channel so that these
         # channels can be written to independently.
         cmd_index_channel = client.channels.create(
-            name=f"simulation_valve_command_{i}_time",
+            name=valve_names[i]+"_command_time",
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
             retrieve_if_name_exists=True,
@@ -91,14 +91,14 @@ def main():
             [
                 # The command channel is used to send a command to the valve.
                 sy.Channel(
-                    name=f"simulation_valve_command_{i}",
+                    name=valve_names[i]+"_command",
                     index=cmd_index_channel.key,
                     data_type=sy.DataType.UINT8,
                 ),
                 # The response channel is used to acknowledge the response from our simulated
                 # DAQ.
                 sy.Channel(
-                    name=f"simulation_valve_response_{i}",
+                    name=valve_names[i]+"_response",
                     index=sensor_time_channel.key,
                     data_type=sy.DataType.UINT8,
                 ),
@@ -153,11 +153,14 @@ def main():
                 if frame is not None:
                     for channel in frame.channels:
                         # 1 is open, 0 is closed
+                        #if the command channel has a value greater than 0.9, we consider the valve to be open (1), otherwise it's closed (0). 
+                        # We write this state to the corresponding response channel.
                         sensor_states[command_to_response[channel].key] = np.uint8(
                             frame[channel][-1] > 0.9
                         )
                 for j, channel in enumerate(sensors):
-                    sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100)
+                    #write sine wave to sensor channels shifted by the sensor index. 
+                    sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
                 sensor_states[sensor_time_channel.key] = sy.TimeStamp.now()
                 writer.write(sensor_states)
                 i += 1
