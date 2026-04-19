@@ -54,7 +54,7 @@ def main():
 
     print(f"Connected to Synnax at {pc_ip}")
 
-    client = sy.Synnax(host=pc_ip, port=PORT, username="synnax", password="seldon", secure=False)
+    client = sy.Synnax(host=pc_ip, port=PORT, username="teststand", password="teststand", secure=False)
 
     # Some lists to store our channels.
     valve_commands = list()
@@ -146,21 +146,21 @@ def main():
                 # If we've received a command, update the state of the corresponding valve.
                 frame = streamer.read(timeout=0)    #read any incoming valve commands, but don't wait if there are none (timeout=0)
                 if frame is not None:   #if we've received a command, update the state of the corresponding valve
-                    for channel in frame.channels:
+                    for channel_key in frame.channels:
                         # 1 is open, 0 is closed
                         #if the command channel has a value greater than 0.9, we consider the valve to be open (1), otherwise it's closed (0). 
                         # We write this state to the corresponding response channel.
-                        valve_response_channel = command_to_response[channel.key]
-                        valve_command = frame[channel][-1]  # get the most recent command for this channel
+                        valve_response_channel = command_to_response[channel_key]
+                        valve_command = frame[channel_key][-1]  # get the most recent command for this channel
                         sensor_states[valve_response_channel.key] = np.uint8(valve_command > 0.9)   #write back the response to the valve opening/closing
 
-                        if channel.key == "Valve_1_command":
+                        if channel_key == "Valve_1_command":
                             if valve_command > 0.9:
                                 print("Opening Valve 1")
-                        elif channel.key == "Valve_2_command":
+                        elif channel_key == "Valve_2_command":
                             if valve_command > 0.9:
                                 print("Opening Valve 2")
-                        elif channel.key == "Valve_3_command":
+                        elif channel_key == "Valve_3_command":
                             if valve_command > 0.9:
                                 print("Opening Valve 3")
 
