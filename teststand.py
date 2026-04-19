@@ -182,10 +182,10 @@ def main():
 
                         if channel_key == "Valve_1_command":
                             if valve_command > 0.9:
-                                servo.set_angle(90)  # example of controlling a servo based on a valve command
+                                servo.get_servo("Servo_1").set_angle(90)  # example of controlling a servo based on a valve command
                                 print("Opening Valve 1")
                             else:
-                                servo.set_angle(0)
+                                servo.get_servo("Servo_1").set_angle(0)
                                 print("Closing Valve 1")
                         elif channel_key == "Valve_2_command":
                             if valve_command > 0.9:
