@@ -21,19 +21,14 @@ import sys
 import socket
 import synnax as sy
 
-# We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
-#client = sy.Synnax()
-
-
 # --- CONFIGURATION ---
 PORT = 9090
 SUBNET = "192.168.172"
 
 NUM_VALVES = 3
-NUM_SENSORS = 4
-sensor_names = ["PT1","PT2","PT3","Load_Cell"]
-valve_names = ["Valve_1","Valve_2","Valve_3"]
+NUM_SENSORS = 5
+sensor_names = ["PT1","PT2","PT3","Load_Cell","TC"] # PT = Pressure Transducer, TC = Thermocouple
+valve_names = ["Valve_1","Valve_2","Valve_3"] 
 
 def discover_pc_ip(subnet, port):
     """Scans the network for the Synnax server."""
@@ -138,7 +133,7 @@ def main():
     # Define a rate at which we'll write data.
     loop = sy.Loop(sy.Rate.HZ * 100)
 
-    # Set up the initial state of the valves to 0 (closed).
+    # Set up the initial state of the valves to 0x00 (closed).
     sensor_states = {v.key: np.uint8(False) for v in valve_responses}
 
     # Open a streamer to listen for incoming valve commands.
@@ -147,20 +142,43 @@ def main():
         # Open a writer to write data to Synnax.
         with client.open_writer(sy.TimeStamp.now(), write_to) as writer:
             start = sy.TimeStamp.now()
-            while loop.wait():
+            while loop.wait():  # run this loop at the defined rate of 100 Hz
                 # If we've received a command, update the state of the corresponding valve.
-                frame = streamer.read(timeout=0)
-                if frame is not None:
+                frame = streamer.read(timeout=0)    #read any incoming valve commands, but don't wait if there are none (timeout=0)
+                if frame is not None:   #if we've received a command, update the state of the corresponding valve
                     for channel in frame.channels:
                         # 1 is open, 0 is closed
                         #if the command channel has a value greater than 0.9, we consider the valve to be open (1), otherwise it's closed (0). 
                         # We write this state to the corresponding response channel.
-                        sensor_states[command_to_response[channel].key] = np.uint8(
-                            frame[channel][-1] > 0.9
-                        )
+                        valve_response_channel = command_to_response[channel.key]
+                        valve_command = frame[channel][-1]  # get the most recent command for this channel
+                        sensor_states[valve_response_channel.key] = np.uint8(valve_command > 0.9)   #write back the response to the valve opening/closing
+
+                        if channel.key == "Valve_1_command":
+                            if valve_command > 0.9:
+                                print("Opening Valve 1")
+                        elif channel.key == "Valve_2_command":
+                            if valve_command > 0.9:
+                                print("Opening Valve 2")
+                        elif channel.key == "Valve_3_command":
+                            if valve_command > 0.9:
+                                print("Opening Valve 3")
+
+                #handle writing sensor data. 
                 for j, channel in enumerate(sensors):
                     #write sine wave to sensor channels shifted by the sensor index. 
-                    sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
+                    ##sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
+                    if channel.key == "PT1":
+                        sensor_states[channel.key] = np.float32(100 + 10 * np.sin(i / 1000))
+                    elif channel.key == "PT2":
+                        sensor_states[channel.key] = np.float32(150 + 15 * np.cos(i / 1000))
+                    elif channel.key == "PT3":
+                        sensor_states[channel.key] = np.float32(200 + 20 * np.sin(i / 500))
+                    elif channel.key == "Load_Cell":
+                        sensor_states[channel.key] = np.float32(50 + 5 * np.sin(i / 2000))
+                    elif channel.key == "TC":
+                        sensor_states[channel.key] = np.float32(25 + 10 * np.cos(i / 1500))
+
                 sensor_states[sensor_time_channel.key] = sy.TimeStamp.now()
                 writer.write(sensor_states)
                 i += 1
