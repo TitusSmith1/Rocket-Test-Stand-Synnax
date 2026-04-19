@@ -19,6 +19,7 @@ sensors.
 import numpy as np
 import sys
 import socket
+from SensorCode.pt import get_pressure
 import synnax as sy
 import "SensorCode/thermo.py" as thermo
 import "SensorCode/igniter.py" as igniter
@@ -160,7 +161,11 @@ def main():
 
                         if channel_key == "Valve_1_command":
                             if valve_command > 0.9:
+                                servo.set_angle(90)  # example of controlling a servo based on a valve command
                                 print("Opening Valve 1")
+                            else:
+                                servo.set_angle(0)
+                                print("Closing Valve 1")
                         elif channel_key == "Valve_2_command":
                             if valve_command > 0.9:
                                 print("Opening Valve 2")
@@ -171,21 +176,32 @@ def main():
                 #handle writing sensor data. 
                 for j, channel in enumerate(sensors):
                     #write sine wave to sensor channels shifted by the sensor index. 
-                    sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
-                    #if channel.key == "PT1":
-                    #    sensor_states[channel.key] = np.float32(100 + 10 * np.sin(i / 1000))
-                    #elif channel.key == "PT2":
-                    #    sensor_states[channel.key] = np.float32(150 + 15 * np.cos(i / 1000))
-                    #elif channel.key == "PT3":
-                    #    sensor_states[channel.key] = np.float32(200 + 20 * np.sin(i / 500))
-                    #elif channel.key == "Load_Cell":
-                    #    sensor_states[channel.key] = np.float32(50 + 5 * np.sin(i / 2000))
-                    #elif channel.key == "TC":
-                    #    sensor_states[channel.key] = np.float32(25 + 10 * np.cos(i / 1500))
+                    #sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
+                    if channel.key == "PT1":
+                        sensor_states[channel.key] = pt.get_pressure(pt.chan.voltage)   # example of reading from a pressure transducer and writing that value to the corresponding sensor channel
+                        #np.float32(100 + 10 * np.sin(i / 1000))
+                    elif channel.key == "PT2":
+                        sensor_states[channel.key] = np.float32(150 + 15 * np.cos(i / 1000))
+                    elif channel.key == "PT3":
+                        sensor_states[channel.key] = np.float32(200 + 20 * np.sin(i / 500))
+                    elif channel.key == "Load_Cell":
+                        sensor_states[channel.key] = np.float32(50 + 5 * np.sin(i / 2000))
+                    elif channel.key == "TC":
+                        #sensor_states[channel.key] = np.float32(25 + 10 * np.cos(i / 1500))
+                        sensor_states[channel.key] = thermo.read_temp()   # example of reading from a thermocouple and writing that value to the corresponding sensor channel
 
                 sensor_states[sensor_time_channel.key] = sy.TimeStamp.now()
                 writer.write(sensor_states)
                 i += 1
 
 if __name__=="__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Shutting down gracefully...")
+        servo.cleanup()
+        thermo.cleanup()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        servo.cleanup()
+        thermo.cleanup()
