@@ -19,7 +19,8 @@ sensors.
 import numpy as np
 import sys
 import socket
-from SensorCode.pt import get_pressure
+from SensorCode import servo
+from SensorCode.pt import create_pt, get_pt, get_all_pts
 import synnax as sy
 import "SensorCode/thermo.py" as thermo
 import "SensorCode/igniter.py" as igniter
@@ -34,6 +35,21 @@ NUM_VALVES = 3
 NUM_SENSORS = 5
 sensor_names = ["PT1","PT2","PT3","Load_Cell","TC"] # PT = Pressure Transducer, TC = Thermocouple
 valve_names = ["Valve_1","Valve_2","Valve_3"] 
+
+# --- MULTI-DEVICE CONFIGURATION ---
+# Define your PTs: (adc_channel, max_pressure_psi, name)
+PT_CONFIG = [
+    (0, 500.0, "PT1"),  # Channel 0, 500 PSI max
+    (1, 300.0, "PT2"),  # Channel 1, 300 PSI max
+    (2, 100.0, "PT3"),  # Channel 2, 100 PSI max
+]
+
+# Define your servos: (gpio_pin, name)
+SERVO_CONFIG = [
+    (23, "Servo_1"),  # GPIO 23
+    (24, "Servo_2"),  # GPIO 24
+    (18, "Servo_3"),  # GPIO 18
+]
 
 def discover_pc_ip(subnet, port):
     """Scans the network for the Synnax server."""
@@ -132,6 +148,11 @@ def main():
         *[v.key for v in valve_responses],  # valve responses
     ]
 
+    #setup PTs and Servos based on the defined configurations
+    for pin, name in SERVO_CONFIG:
+        servo.create_servo(pin, name=name)
+    pt.define_pt_config(PT_CONFIG)
+
     # Define the list of channels we'll read from (the incoming valve commands)
     read_from = [v.key for v in valve_commands]
 
@@ -178,12 +199,12 @@ def main():
                     #write sine wave to sensor channels shifted by the sensor index. 
                     #sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
                     if channel.key == "PT1":
-                        sensor_states[channel.key] = pt.get_pressure(pt.chan.voltage)   # example of reading from a pressure transducer and writing that value to the corresponding sensor channel
+                        sensor_states[channel.key] = pt.get_pt("PT1").get_pressure()   # example of reading from a pressure transducer and writing that value to the corresponding sensor channel
                         #np.float32(100 + 10 * np.sin(i / 1000))
                     elif channel.key == "PT2":
-                        sensor_states[channel.key] = np.float32(150 + 15 * np.cos(i / 1000))
+                        sensor_states[channel.key] = pt.get_pt("PT2").get_pressure()
                     elif channel.key == "PT3":
-                        sensor_states[channel.key] = np.float32(200 + 20 * np.sin(i / 500))
+                        sensor_states[channel.key] = pt.get_pt("PT3").get_pressure()
                     elif channel.key == "Load_Cell":
                         sensor_states[channel.key] = np.float32(50 + 5 * np.sin(i / 2000))
                     elif channel.key == "TC":
@@ -199,9 +220,9 @@ if __name__=="__main__":
         main()
     except KeyboardInterrupt:
         print("Shutting down gracefully...")
-        servo.cleanup()
+        servo.cleanup_all()
         thermo.cleanup()
     except Exception as e:
         print(f"An error occurred: {e}")
-        servo.cleanup()
+        servo.cleanup_all()
         thermo.cleanup()
