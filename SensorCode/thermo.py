@@ -24,18 +24,25 @@ def read_temp():
     temp = (value >> 3) * 0.25
     return temp
 
-try:
-    print("Reading MAX6675 Thermocouple (Ctrl+C to stop)...")
-    while True:
-        temperature = read_temp()
-        if isinstance(temperature, float):
-            print(f"Current Temp: {temperature:.2f}°C | {((temperature * 9/5) + 32):.2f}°F")
-        else:
-            print(temperature)
-            
-        # The MAX6675 needs ~200ms between conversions
-        time.sleep(0.5)
-
-except KeyboardInterrupt:
+def cleanup():
     spi.close()
-    print("\nTest Stopped.")
+
+def main():
+    try:
+        print("Reading MAX6675 Thermocouple (Ctrl+C to stop)...")
+        while True:
+            temperature = read_temp()
+            if isinstance(temperature, float):
+                print(f"Current Temp: {temperature:.2f}°C | {((temperature * 9/5) + 32):.2f}°F")
+            else:
+                print(temperature)
+                
+            # The MAX6675 needs ~200ms between conversions
+            time.sleep(0.5)
+
+    except KeyboardInterrupt:
+        spi.close()
+        print("\nTest Stopped.")
+
+if __name__ == "__main__":
+    main()

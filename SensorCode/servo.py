@@ -25,20 +25,26 @@ def set_angle(angle):
     else:
         print(f"Angle {angle} is out of range (0-{MAX_ANGLE})")
 
-try:
-    print("Starting Servo Test (0 to 90 degrees)...")
-    
-    while True:
-        # Move to 0
-        set_angle(0)
-        time.sleep(10)
-        
-        # Move to 90
-        set_angle(90)
-        time.sleep(10)
-
-except KeyboardInterrupt:
-    print("\nCleaning up...")
-    # Setting pulsewidth to 0 stops the signal (lets the motor relax)
-    pi.set_servo_pulsewidth(SERVO_PIN, 0)
+def cleanup():
+    """Stops the servo and cleans up pigpio."""
+    pi.set_servo_pulsewidth(SERVO_PIN, 0)  # Stop sending pulses
     pi.stop()
+
+def main():
+    try:
+        print("Starting Servo Test (0 to 90 degrees)...")
+        while True:
+            # Move to 0
+            set_angle(0)
+            time.sleep(10)
+            # Move to 90
+            set_angle(90)
+            time.sleep(10)
+    except KeyboardInterrupt:
+        print("\nCleaning up...")
+        # Setting pulsewidth to 0 stops the signal (lets the motor relax)
+        pi.set_servo_pulsewidth(SERVO_PIN, 0)
+        pi.stop()
+
+if __name__ == "__main__":
+    main()

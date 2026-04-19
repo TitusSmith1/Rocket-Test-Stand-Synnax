@@ -18,10 +18,7 @@ chan = AnalogIn(ads, 0)
 # SENSOR CONFIG
 # ------------------------
 MAX_PRESSURE = 500.0   # change to 300.0 if using 300 PSI sensor
-
-R1 = 3000.0
-R2 = 5000.0
-DIVIDER_RATIO = R2 / (R1 + R2)
+DIVIDER_RATIO = 1
 
 # industrial sensor characteristics
 ZERO_V = 0.5
@@ -42,24 +39,29 @@ def get_pressure(ads_voltage):
 
     return max(0, psi)
 
-# ------------------------
-# MAIN LOOP
-# ------------------------
-print("Starting Pressure Readings...")
-print(f"Max Pressure: {MAX_PRESSURE} PSI")
-print(f"Divider Ratio: {DIVIDER_RATIO:.4f}")
-print("-" * 40)
 
-try:
-    while True:
-        raw_v = chan.voltage
-        psi = get_pressure(raw_v)
+def main():
+    # ------------------------
+    # MAIN LOOP
+    # ------------------------
+    print("Starting Pressure Readings...")
+    print(f"Max Pressure: {MAX_PRESSURE} PSI")
+    print(f"Divider Ratio: {DIVIDER_RATIO:.4f}")
+    print("-" * 40)
 
-        sensor_v = raw_v / DIVIDER_RATIO
+    try:
+        while True:
+            raw_v = chan.voltage
+            psi = get_pressure(raw_v)
 
-        print(f"ADC: {raw_v:.3f} V | Sensor: {sensor_v:.3f} V | Pressure: {psi:.1f} PSI")
+            sensor_v = raw_v / DIVIDER_RATIO
 
-        time.sleep(0.5)
+            print(f"ADC: {raw_v:.3f} V | Sensor: {sensor_v:.3f} V | Pressure: {psi:.1f} PSI")
 
-except KeyboardInterrupt:
-    print("\nExiting...")
+            time.sleep(0.5)
+
+    except KeyboardInterrupt:
+        print("\nExiting...")
+
+if __name__ == "__main__":
+    main()
