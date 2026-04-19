@@ -1,4 +1,4 @@
-# SynnaxTest2
+# Synnax Code
 
 A rocket engine test stand simulation using Synnax for data acquisition and control.
 
