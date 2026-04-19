@@ -54,7 +54,7 @@ def main():
 
     print(f"Connected to Synnax at {pc_ip}")
 
-    client = sy.Synnax(host=pc_ip, port=PORT, username="teststand", password="teststand", secure=False)
+    client = sy.Synnax(host=pc_ip, port=PORT, username="synnax", password="seldon", secure=False)
 
     # Some lists to store our channels.
     valve_commands = list()
@@ -72,7 +72,7 @@ def main():
     )
 
     # Create the necessary channels for each valve.
-    for i in range(1, NUM_VALVES + 1):
+    for i in range(NUM_VALVES):
         # The index channel for the command is used to track the time at which the command
         # was sent. We need to have separate indexes for each command channel so that these
         # channels can be written to independently.
@@ -167,17 +167,17 @@ def main():
                 #handle writing sensor data. 
                 for j, channel in enumerate(sensors):
                     #write sine wave to sensor channels shifted by the sensor index. 
-                    ##sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
-                    if channel.key == "PT1":
-                        sensor_states[channel.key] = np.float32(100 + 10 * np.sin(i / 1000))
-                    elif channel.key == "PT2":
-                        sensor_states[channel.key] = np.float32(150 + 15 * np.cos(i / 1000))
-                    elif channel.key == "PT3":
-                        sensor_states[channel.key] = np.float32(200 + 20 * np.sin(i / 500))
-                    elif channel.key == "Load_Cell":
-                        sensor_states[channel.key] = np.float32(50 + 5 * np.sin(i / 2000))
-                    elif channel.key == "TC":
-                        sensor_states[channel.key] = np.float32(25 + 10 * np.cos(i / 1500))
+                    sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
+                    #if channel.key == "PT1":
+                    #    sensor_states[channel.key] = np.float32(100 + 10 * np.sin(i / 1000))
+                    #elif channel.key == "PT2":
+                    #    sensor_states[channel.key] = np.float32(150 + 15 * np.cos(i / 1000))
+                    #elif channel.key == "PT3":
+                    #    sensor_states[channel.key] = np.float32(200 + 20 * np.sin(i / 500))
+                    #elif channel.key == "Load_Cell":
+                    #    sensor_states[channel.key] = np.float32(50 + 5 * np.sin(i / 2000))
+                    #elif channel.key == "TC":
+                    #    sensor_states[channel.key] = np.float32(25 + 10 * np.cos(i / 1500))
 
                 sensor_states[sensor_time_channel.key] = sy.TimeStamp.now()
                 writer.write(sensor_states)
