@@ -175,6 +175,7 @@ def main():
     hotfire_active = False
     hotfire_start = None
     hotfire_duration = 10.0
+    servo2_delay_start = None
 
     # Open a streamer to listen for incoming valve commands.
     with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
@@ -225,14 +226,22 @@ def main():
                                 igniter_armed = False
                         elif cmd_name == "Hotfire_command":
                             if valve_command > 0.9 and not hotfire_active:
-                                print("Hotfire command received: opening all valves for 10 seconds")
-                                for name in ["Servo_1", "Servo_2", "Servo_3"]:
-                                    servo.get_servo(name).set_angle(90)
+                                print("Hotfire command received: opening valves (Valve_2 delayed by 0.5s) for 10 seconds")
+                                # Open Servo_1 and Servo_3 immediately
+                                servo.get_servo("Servo_1").set_angle(90)
+                                servo.get_servo("Servo_3").set_angle(90)
+                                # Set delay for Servo_2
+                                servo2_delay_start = time.monotonic()
                                 hotfire_active = True
                                 hotfire_start = time.monotonic()
                             elif valve_command <= 0.9 and hotfire_active:
                                 # command was released before the hotfire routine completed
                                 print("Hotfire command released; routine will continue until timeout")
+
+                if hotfire_active and servo2_delay_start is not None and time.monotonic() - servo2_delay_start >= 0.5:
+                    servo.get_servo("Servo_2").set_angle(90)
+                    print("Opening Valve 2 (delayed)")
+                    servo2_delay_start = None  # Prevent re-opening
 
                 if hotfire_active and hotfire_start is not None:
                     if time.monotonic() - hotfire_start >= hotfire_duration:
@@ -241,6 +250,7 @@ def main():
                             servo.get_servo(name).set_angle(0)
                         hotfire_active = False
                         hotfire_start = None
+                        servo2_delay_start = None
 
                 #handle writing sensor data. 
                 for channel in sensors:
