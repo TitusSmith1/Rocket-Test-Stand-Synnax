@@ -14,15 +14,20 @@ def trigger_ignition(duration=10):
     3 seconds is usually plenty to get Nichrome red-hot.
     """
     print(f"!!! WARNING: IGNITION ARMED !!!")
-    time.sleep(2) # Safety countdown
+    #time.sleep(2) # Safety countdown
     
     print("FIRING...")
     GPIO.output(IGNITER_PIN, GPIO.HIGH) # Turn on MOSFET
-    
+    """
     time.sleep(duration)
     
     GPIO.output(IGNITER_PIN, GPIO.LOW)  # Turn off MOSFET
     print("IGNITION COMPLETE. MODULE DISARMED.")
+    """
+
+def cancel_ignition():
+    GPIO.output(IGNITER_PIN, GPIO.LOW)
+    print("IGNITION CANCELLED. MODULE DISARMED.")
 
 
 if __name__=="__main__":

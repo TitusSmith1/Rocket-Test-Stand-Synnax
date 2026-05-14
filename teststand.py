@@ -228,9 +228,10 @@ def main():
                                 igniter_armed = not igniter_armed
                                 if igniter_armed:
                                     print("Igniter command received: toggling ON and firing igniter")
-                                    igniter.trigger_ignition(duration=5)
+                                    igniter.trigger_ignition()
                                 else:
                                     print("Igniter command received: toggling OFF")
+                                    igniter.cancel_ignition()
                             elif valve_command <= 0.9 and igniter_command_last:
                                 # Clear the rising-edge tracker so the next press can toggle again.
                                 igniter_command_last = False
