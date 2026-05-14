@@ -202,26 +202,26 @@ def main():
 
                         cmd_name = command_names.get(channel_key, "")
                         if cmd_name == "Valve_1_command":
-                            if valve_command > 0.9:
-                                servo.get_servo("Servo_1").set_angle(90)
-                                print("Opening Valve 1")
-                            else:
-                                servo.get_servo("Servo_1").set_angle(0)
-                                print("Closing Valve 1")
+                            if valve_command > 0.9:# open the fuel servo
+                                servo.get_servo("Servo_1").set_angle(8)
+                                print("Opening Valve 1 fuel")
+                            else:   #close the fuel servo
+                                servo.get_servo("Servo_1").set_angle(88)
+                                print("Closing Valve 1 fuel")
                         elif cmd_name == "Valve_2_command":
-                            if valve_command > 0.9:
+                            if valve_command > 0.9:#open the oxigen servo
+                                servo.get_servo("Servo_2").set_angle(8)
+                                print("Opening Valve 2 oxygen")
+                            else:   #close the oxygen servo
                                 servo.get_servo("Servo_2").set_angle(90)
-                                print("Opening Valve 2")
-                            else:
-                                servo.get_servo("Servo_2").set_angle(0)
                                 print("Closing Valve 2")
                         elif cmd_name == "Valve_3_command":
-                            if valve_command > 0.9:
-                                servo.get_servo("Servo_3").set_angle(90)
-                                print("Opening Valve 3")
-                            else:
-                                servo.get_servo("Servo_3").set_angle(0)
-                                print("Closing Valve 3")
+                            if valve_command > 0.9: #open the pressurization servo
+                                servo.get_servo("Servo_3").set_angle(5)
+                                print("Opening Valve 3 pressurization")
+                            else: #close the pressurization servo
+                                servo.get_servo("Servo_3").set_angle(88)
+                                print("Closing Valve 3 pressurization")
                         elif cmd_name == "Igniter_command":
                             if valve_command > 0.9 and not igniter_armed:
                                 print("Igniter command received: firing igniter")
