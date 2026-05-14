@@ -179,7 +179,7 @@ def main():
     hotfire_active = False
     hotfire_start = None
     hotfire_duration = 10.0
-    servo2_delay_start = None
+    servo1_delay_start = None
     fuel_delay = 0.5
 
     # Open a streamer to listen for incoming valve commands.
@@ -231,31 +231,47 @@ def main():
                                 igniter_armed = False
                         elif cmd_name == "Hotfire_command":
                             if valve_command > 0.9 and not hotfire_active:
-                                print("Hotfire command received: opening valves (Valve_2 delayed by 0.5s) for 10 seconds")
-                                # Open Servo_1 and Servo_3 immediately
-                                servo.get_servo("Servo_1").set_angle(90)
-                                servo.get_servo("Servo_3").set_angle(90)
-                                # Set delay for Servo_2
-                                servo2_delay_start = time.monotonic()
+                                print("Hotfire command received: opening valves (Valve_2 and Valve_3 immediately, Valve_1 delayed by 0.5s) for 10 seconds")
+                                # Open Servo_2 and Servo_3 immediately
+                                servo.get_servo("Servo_2").set_angle(8)
+                                servo.get_servo("Servo_3").set_angle(5)
+                                # Update response channels for Valve_2 and Valve_3
+                                valve2_response = command_to_response[valve_commands[1].key]  # Valve_2
+                                valve3_response = command_to_response[valve_commands[2].key]  # Valve_3
+                                sensor_states[valve2_response.key] = np.array([np.uint8(True)])
+                                sensor_states[valve3_response.key] = np.array([np.uint8(True)])
+                                # Set delay for Servo_1
+                                servo1_delay_start = time.monotonic()
                                 hotfire_active = True
                                 hotfire_start = time.monotonic()
                             elif valve_command <= 0.9 and hotfire_active:
                                 # command was released before the hotfire routine completed
                                 print("Hotfire command released; routine will continue until timeout")
 
-                if hotfire_active and servo2_delay_start is not None and time.monotonic() - servo2_delay_start >= fuel_delay:
-                    servo.get_servo("Servo_2").set_angle(90)
-                    print("Opening Valve 2 (delayed)")
-                    servo2_delay_start = None  # Prevent re-opening
+                if hotfire_active and servo1_delay_start is not None and time.monotonic() - servo1_delay_start >= fuel_delay:
+                    servo.get_servo("Servo_1").set_angle(8)
+                    print("Opening Valve 1 (delayed)")
+                    # Update response channel for Valve_1
+                    valve1_response = command_to_response[valve_commands[0].key]  # Valve_1
+                    sensor_states[valve1_response.key] = np.array([np.uint8(True)])
+                    servo1_delay_start = None  # Prevent re-opening
 
                 if hotfire_active and hotfire_start is not None:
                     if time.monotonic() - hotfire_start >= hotfire_duration:
                         print("Hotfire routine complete: closing all valves")
-                        for name in ["Servo_1", "Servo_2", "Servo_3"]:
-                            servo.get_servo(name).set_angle(0)
+                        servo.get_servo("Servo_1").set_angle(88)
+                        servo.get_servo("Servo_2").set_angle(90)
+                        servo.get_servo("Servo_3").set_angle(88)
+                        # Update response channels for all valves to closed
+                        valve1_response = command_to_response[valve_commands[0].key]
+                        valve2_response = command_to_response[valve_commands[1].key]
+                        valve3_response = command_to_response[valve_commands[2].key]
+                        sensor_states[valve1_response.key] = np.array([np.uint8(False)])
+                        sensor_states[valve2_response.key] = np.array([np.uint8(False)])
+                        sensor_states[valve3_response.key] = np.array([np.uint8(False)])
                         hotfire_active = False
                         hotfire_start = None
-                        servo2_delay_start = None
+                        servo1_delay_start = None
 
                 #handle writing sensor data. 
                 for channel in sensors:
