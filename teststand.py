@@ -20,8 +20,7 @@ import numpy as np
 import sys
 import socket
 import time
-from SensorCode import servo
-from SensorCode.pt import create_pt, get_pt, get_all_pts
+import SensorCode.scale as scale
 import synnax as sy
 import SensorCode.thermo as thermo
 import SensorCode.ignite as igniter
@@ -36,6 +35,8 @@ NUM_VALVES = 5
 NUM_SENSORS = 5
 sensor_names = ["PT1","PT2","PT3","Load_Cell","TC"] # PT = Pressure Transducer, TC = Thermocouple
 valve_names = ["Valve_1","Valve_2","Valve_3","Igniter","Hotfire"] 
+LOAD_CELL_REFERENCE_UNIT = 1.0
+LOAD_CELL_READINGS = 5
 
 # --- MULTI-DEVICE CONFIGURATION ---
 # Define your PTs: (adc_channel, max_pressure_psi, name)
@@ -152,6 +153,9 @@ def main():
         *[v.key for v in valve_responses],  # valve responses
     ]
 
+    # Initialize the load cell before starting the data loop.
+    hx, tare_offset = scale.setup_scale()
+
     #setup PTs and Servos based on the defined configurations
     for pin, name in SERVO_CONFIG:
         servo.create_servo(pin, name=name)
@@ -176,6 +180,7 @@ def main():
     hotfire_start = None
     hotfire_duration = 10.0
     servo2_delay_start = None
+    fuel_delay = 0.5
 
     # Open a streamer to listen for incoming valve commands.
     with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
@@ -238,7 +243,7 @@ def main():
                                 # command was released before the hotfire routine completed
                                 print("Hotfire command released; routine will continue until timeout")
 
-                if hotfire_active and servo2_delay_start is not None and time.monotonic() - servo2_delay_start >= 0.5:
+                if hotfire_active and servo2_delay_start is not None and time.monotonic() - servo2_delay_start >= fuel_delay:
                     servo.get_servo("Servo_2").set_angle(90)
                     print("Opening Valve 2 (delayed)")
                     servo2_delay_start = None  # Prevent re-opening
@@ -264,7 +269,9 @@ def main():
                     elif channel.name == "PT3":
                         sensor_states[channel.key] = np.array([pt.get_pt("PT3").get_pressure()])
                     elif channel.name == "Load_Cell":
-                        sensor_states[channel.key] = np.array([0.0]); #np.float32(50 + 5 * np.sin(i / 2000))
+                        current_raw = scale.get_average_reading(hx, LOAD_CELL_READINGS)
+                        weight = (current_raw - tare_offset) / LOAD_CELL_REFERENCE_UNIT
+                        sensor_states[channel.key] = np.array([np.float32(weight)], dtype=np.float32)
                     elif channel.name == "TC":
                         # Thermocouple channel: read the temperature and write it to TC.
                         tc_value = thermo.read_temp()
@@ -285,7 +292,9 @@ if __name__=="__main__":
         print("Shutting down gracefully...")
         servo.cleanup_all()
         thermo.cleanup()
+        scale.GPIO.cleanup()
     except Exception as e:
         print(f"An error occurred: {e}")
         servo.cleanup_all()
         thermo.cleanup()
+        scale.GPIO.cleanup()
