@@ -176,6 +176,7 @@ def main():
         **{v.key: np.array([np.uint8(False)]) for v in valve_responses},
     }
     igniter_armed = False
+    igniter_command_last = False
     hotfire_active = False
     hotfire_start = None
     hotfire_duration = 10.0
@@ -223,12 +224,18 @@ def main():
                                 servo.get_servo("Servo_3").set_angle(88)
                                 print("Closing Valve 3 pressurization")
                         elif cmd_name == "Igniter_command":
-                            if valve_command > 0.9 and not igniter_armed:
-                                print("Igniter command received: firing igniter")
-                                igniter.trigger_ignition(duration=5)
-                                igniter_armed = True
-                            elif valve_command <= 0.9 and igniter_armed:
-                                igniter_armed = False
+                            if valve_command > 0.9 and not igniter_command_last:
+                                igniter_armed = not igniter_armed
+                                if igniter_armed:
+                                    print("Igniter command received: toggling ON and firing igniter")
+                                    igniter.trigger_ignition(duration=5)
+                                else:
+                                    print("Igniter command received: toggling OFF")
+                            elif valve_command <= 0.9 and igniter_command_last:
+                                # Clear the rising-edge tracker so the next press can toggle again.
+                                igniter_command_last = False
+                            sensor_states[valve_response_channel.key] = np.array([np.uint8(igniter_armed)])
+                            igniter_command_last = valve_command > 0.9
                         elif cmd_name == "Hotfire_command":
                             if valve_command > 0.9 and not hotfire_active:
                                 print("Hotfire command received: opening valves (Valve_2 and Valve_3 immediately, Valve_1 delayed by 0.5s) for 10 seconds")
