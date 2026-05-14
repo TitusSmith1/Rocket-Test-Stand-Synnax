@@ -22,10 +22,10 @@ import socket
 from SensorCode import servo
 from SensorCode.pt import create_pt, get_pt, get_all_pts
 import synnax as sy
-import "SensorCode/thermo.py" as thermo
-import "SensorCode/igniter.py" as igniter
-import "SensorCode/pt.py" as pt
-import "SensorCode/servo.py" as servo
+import SensorCode.thermo as thermo
+import SensorCode.ignite as igniter
+import SensorCode.pt as pt
+import SensorCode.servo as servo
 
 # --- CONFIGURATION ---
 PORT = 9090
@@ -46,9 +46,9 @@ PT_CONFIG = [
 
 # Define your servos: (gpio_pin, name)
 SERVO_CONFIG = [
-    (23, "Servo_1"),  # GPIO 23
-    (24, "Servo_2"),  # GPIO 24
-    (18, "Servo_3"),  # GPIO 18
+    (8, "Servo_1"),  # GPIO 23
+    (9, "Servo_2"),  # GPIO 24
+    (10, "Servo_3"),  # GPIO 18
 ]
 
 def discover_pc_ip(subnet, port):
@@ -157,7 +157,7 @@ def main():
     read_from = [v.key for v in valve_commands]
 
     # Define a rate at which we'll write data.
-    loop = sy.Loop(sy.Rate.HZ * 100)
+    loop = sy.Loop(sy.Rate.HZ * 50)
 
     # Set up the initial state of the valves to 0x00 (closed).
     sensor_states = {v.key: np.uint8(False) for v in valve_responses}
@@ -168,7 +168,7 @@ def main():
         # Open a writer to write data to Synnax.
         with client.open_writer(sy.TimeStamp.now(), write_to) as writer:
             start = sy.TimeStamp.now()
-            while loop.wait():  # run this loop at the defined rate of 100 Hz
+            while loop.wait():  # run this loop at the defined rate of 50 Hz
                 # If we've received a command, update the state of the corresponding valve.
                 frame = streamer.read(timeout=0)    #read any incoming valve commands, but don't wait if there are none (timeout=0)
                 if frame is not None:   #if we've received a command, update the state of the corresponding valve

@@ -24,11 +24,13 @@ def trigger_ignition(duration=10):
     GPIO.output(IGNITER_PIN, GPIO.LOW)  # Turn off MOSFET
     print("IGNITION COMPLETE. MODULE DISARMED.")
 
-try:
-    # Run the test
-    trigger_ignition()
 
-except KeyboardInterrupt:
-    print("\nEMERGENCY STOP")
-finally:
-    GPIO.cleanup()
+if __name__=="__main__":
+    try:
+        # Run the test
+        trigger_ignition()
+
+    except KeyboardInterrupt:
+        print("\nEMERGENCY STOP")
+    finally:
+        GPIO.cleanup()

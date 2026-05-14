@@ -15,7 +15,7 @@ pca.frequency = 50
 
 # 4. Initialize the servo on channel 8
 # The PCA9685 has 16 channels, indexed 0 to 15.
-servo_8 = servo.Servo(pca.channels[8])
+servo_8 = servo.Servo(pca.channels[10])
 
 print("Starting servo test on Channel 8. Press Ctrl+C to stop.")
 
@@ -23,16 +23,12 @@ try:
     while True:
         print("Moving to 0 degrees")
         servo_8.angle = 0
-        time.sleep(1)
+        time.sleep(5)
         
         print("Moving to 90 degrees")
-        servo_8.angle = 90
-        time.sleep(1)
+        servo_8.angle = 165
+        time.sleep(5)
         
-        print("Moving to 180 degrees")
-        servo_8.angle = 180
-        time.sleep(1)
-
 except KeyboardInterrupt:
     print("\nTest stopped by user.")
 
