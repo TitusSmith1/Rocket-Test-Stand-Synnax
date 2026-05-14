@@ -1,12 +1,13 @@
-import pigpio
 import time
+import board
+import busio
+from adafruit_pca9685 import PCA9685
+from adafruit_motor import servo as servo_motor
 
-# Initialize pigpio (do this once)
-pi = pigpio.pi()
-
-if not pi.connected:
-    print("Could not connect to pigpiod. Did you run 'sudo pigpiod'?")
-    exit()
+# Initialize PCA9685 over I2C
+i2c = busio.I2C(board.SCL, board.SDA)
+pca = PCA9685(i2c)
+pca.frequency = 50
 
 # ------------------------
 # SERVO CLASS
@@ -14,37 +15,34 @@ if not pi.connected:
 class Servo:
     """Class to manage a single servo on a specific GPIO pin."""
     
-    def __init__(self, pin, min_pulse=500, max_pulse=2500, max_angle=280, name=None):
+    def __init__(self, channel, min_pulse=500, max_pulse=2500, max_angle=180, name=None):
         """
         Args:
-            pin: GPIO pin number
+            channel: PCA9685 channel object
             min_pulse: Minimum pulse width in microseconds
             max_pulse: Maximum pulse width in microseconds
             max_angle: Maximum angle in degrees
             name: Optional name identifier
         """
-        self.pin = pin
+        self.channel = channel
         self.min_pulse = min_pulse
         self.max_pulse = max_pulse
         self.max_angle = max_angle
-        self.name = name if name else f"Servo_{pin}"
-        
-        # Initialize the pin as output
-        pi.set_mode(pin, pigpio.OUTPUT)
-    
+        self.name = name if name else f"Servo_{channel.channel}"
+        self._servo = servo_motor.Servo(channel, min_pulse=min_pulse, max_pulse=max_pulse)
+
     def set_angle(self, angle):
         """Set the servo to a specific angle."""
         if 0 <= angle <= self.max_angle:
-            pulse = self.min_pulse + (angle / self.max_angle) * (self.max_pulse - self.min_pulse)
-            pi.set_servo_pulsewidth(self.pin, int(pulse))
-            print(f"{self.name}: Setting angle to {angle}° ({int(pulse)}µs)")
+            self._servo.angle = angle
+            print(f"{self.name}: Setting angle to {angle}°")
         else:
             print(f"{self.name}: Angle {angle} is out of range (0-{self.max_angle})")
-    
+
     def stop(self):
-        """Stop the servo (disable pulse)."""
-        pi.set_servo_pulsewidth(self.pin, 0)
-    
+        """Stop the servo (disable pulses)."""
+        self._servo.angle = None
+
     def cleanup(self):
         """Stop the servo and clean up."""
         self.stop()
@@ -54,24 +52,30 @@ class Servo:
 _servo_instances = {}
 
 
-def create_servo(pin, min_pulse=500, max_pulse=2500, max_angle=280, name=None):
+def create_servo(channel, min_pulse=500, max_pulse=2500, max_angle=180, name=None):
     """
-    Create and register a new servo.
+    Create and register a new servo on the PCA9685.
     
     Args:
-        pin: GPIO pin number
+        channel: PCA9685 channel number (0-15)
         min_pulse: Minimum pulse width in microseconds
         max_pulse: Maximum pulse width in microseconds
         max_angle: Maximum angle in degrees
-        name: Optional name (defaults to Servo_{pin})
+        name: Optional name (defaults to Servo_{channel})
     
     Returns:
         Servo instance
     """
     if name is None:
-        name = f"Servo_{pin}"
+        name = f"Servo_{channel}"
     
-    servo_instance = Servo(pin, min_pulse, max_pulse, max_angle, name)
+    servo_instance = Servo(
+        pca.channels[channel],
+        min_pulse=min_pulse,
+        max_pulse=max_pulse,
+        max_angle=max_angle,
+        name=name,
+    )
     _servo_instances[name] = servo_instance
     return servo_instance
 
@@ -87,10 +91,10 @@ def get_all_servos():
 
 
 def cleanup_all():
-    """Stop all servos and clean up pigpio."""
-    for servo in _servo_instances.values():
-        servo.cleanup()
-    pi.stop()
+    """Stop all servos and deinitialize the PCA9685."""
+    for servo_instance in _servo_instances.values():
+        servo_instance.cleanup()
+    pca.deinit()
 
 
 # Legacy: create default instance for backward compatibility
@@ -98,25 +102,27 @@ SERVO_PIN = 23
 
 def set_angle(angle):
     """Legacy function for backward compatibility."""
-    if 0 <= angle <= 280:
-        pulse = 500 + (angle / 280) * (2500 - 500)
-        pi.set_servo_pulsewidth(SERVO_PIN, pulse)
-        print(f"Setting angle to {angle}° ({int(pulse)}µs)")
+    if 0 <= angle <= 180:
+        servo = get_servo(f"Servo_{SERVO_PIN}")
+        if servo:
+            servo.set_angle(angle)
+            print(f"Setting angle to {angle}°")
+        else:
+            print("Legacy servo instance not found.")
     else:
-        print(f"Angle {angle} is out of range (0-280)")
+        print(f"Angle {angle} is out of range (0-180)")
 
 
 def cleanup():
     """Legacy cleanup function."""
-    pi.set_servo_pulsewidth(SERVO_PIN, 0)
-    pi.stop()
+    cleanup_all()
 
 
 def main():
-    # Create multiple servos
-    servo1 = create_servo(23, name="Servo_1")
-    servo2 = create_servo(24, name="Servo_2")
-    servo3 = create_servo(18, name="Servo_3")
+    # Create multiple servos on PCA9685 channels 8, 9, and 10
+    servo1 = create_servo(8, name="Servo_1")
+    servo2 = create_servo(9, name="Servo_2")
+    servo3 = create_servo(10, name="Servo_3")
 
     try:
         print("Starting Servo Test...")

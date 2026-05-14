@@ -19,6 +19,7 @@ sensors.
 import numpy as np
 import sys
 import socket
+import time
 from SensorCode import servo
 from SensorCode.pt import create_pt, get_pt, get_all_pts
 import synnax as sy
@@ -31,10 +32,10 @@ import SensorCode.servo as servo
 PORT = 9090
 SUBNET = "192.168.172"
 
-NUM_VALVES = 3
+NUM_VALVES = 5
 NUM_SENSORS = 5
 sensor_names = ["PT1","PT2","PT3","Load_Cell","TC"] # PT = Pressure Transducer, TC = Thermocouple
-valve_names = ["Valve_1","Valve_2","Valve_3"] 
+valve_names = ["Valve_1","Valve_2","Valve_3","Igniter","Hotfire"] 
 
 # --- MULTI-DEVICE CONFIGURATION ---
 # Define your PTs: (adc_channel, max_pressure_psi, name)
@@ -164,8 +165,16 @@ def main():
     # Define a rate at which we'll write data.
     loop = sy.Loop(sy.Rate.HZ * 50)
 
-    # Set up the initial state of the valves to 0x00 (closed).
-    sensor_states = {v.key: np.array([np.uint8(False)]) for v in valve_responses}
+    # Set up the initial state of the write targets.
+    sensor_states = {
+        sensor_time_channel.key: np.array([sy.TimeStamp.now()]),
+        **{s.key: np.array([0.0], dtype=np.float32) for s in sensors},
+        **{v.key: np.array([np.uint8(False)]) for v in valve_responses},
+    }
+    igniter_armed = False
+    hotfire_active = False
+    hotfire_start = None
+    hotfire_duration = 10.0
 
     # Open a streamer to listen for incoming valve commands.
     with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
@@ -207,6 +216,31 @@ def main():
                             else:
                                 servo.get_servo("Servo_3").set_angle(0)
                                 print("Closing Valve 3")
+                        elif cmd_name == "Igniter_command":
+                            if valve_command > 0.9 and not igniter_armed:
+                                print("Igniter command received: firing igniter")
+                                igniter.trigger_ignition(duration=5)
+                                igniter_armed = True
+                            elif valve_command <= 0.9 and igniter_armed:
+                                igniter_armed = False
+                        elif cmd_name == "Hotfire_command":
+                            if valve_command > 0.9 and not hotfire_active:
+                                print("Hotfire command received: opening all valves for 10 seconds")
+                                for name in ["Servo_1", "Servo_2", "Servo_3"]:
+                                    servo.get_servo(name).set_angle(90)
+                                hotfire_active = True
+                                hotfire_start = time.monotonic()
+                            elif valve_command <= 0.9 and hotfire_active:
+                                # command was released before the hotfire routine completed
+                                print("Hotfire command released; routine will continue until timeout")
+
+                if hotfire_active and hotfire_start is not None:
+                    if time.monotonic() - hotfire_start >= hotfire_duration:
+                        print("Hotfire routine complete: closing all valves")
+                        for name in ["Servo_1", "Servo_2", "Servo_3"]:
+                            servo.get_servo(name).set_angle(0)
+                        hotfire_active = False
+                        hotfire_start = None
 
                 #handle writing sensor data. 
                 for channel in sensors:
@@ -222,8 +256,13 @@ def main():
                     elif channel.name == "Load_Cell":
                         sensor_states[channel.key] = np.array([0.0]); #np.float32(50 + 5 * np.sin(i / 2000))
                     elif channel.name == "TC":
-                        #sensor_states[channel.key] = np.float32(25 + 10 * np.cos(i / 1500))
-                        sensor_states[channel.key] = np.array([thermo.read_temp()])   # example of reading from a thermocouple and writing that value to the corresponding sensor channel
+                        # Thermocouple channel: read the temperature and write it to TC.
+                        tc_value = thermo.read_temp()
+                        if isinstance(tc_value, float):
+                            sensor_states[channel.key] = np.array([tc_value], dtype=np.float32)
+                        else:
+                            print(f"TC read error: {tc_value}")
+                            sensor_states[channel.key] = np.array([0.0], dtype=np.float32)
 
                 sensor_states[sensor_time_channel.key] = np.array([sy.TimeStamp.now()])
                 writer.write(sensor_states)

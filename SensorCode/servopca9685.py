@@ -22,7 +22,7 @@ print("Starting servo test on Channel 8. Press Ctrl+C to stop.")
 try:
     while True:
         print("Moving to 0 degrees")
-        servo_8.angle = 0
+        servo_8.angle = 8
         time.sleep(5)
         
         print("Moving to 90 degrees")
