@@ -127,6 +127,9 @@ def main():
         valve_responses.append(res)
         command_to_response[cmd.key] = res
 
+    # Map command channel keys back to their names for runtime comparisons.
+    command_names = {cmd.key: cmd.name for cmd in valve_commands}
+
     # Defining the sensor channels to create.
     sensors = [
         sy.Channel(
@@ -151,7 +154,9 @@ def main():
     #setup PTs and Servos based on the defined configurations
     for pin, name in SERVO_CONFIG:
         servo.create_servo(pin, name=name)
-    pt.define_pt_config(PT_CONFIG)
+    
+    for channel, psi, name in PT_CONFIG:
+        pt.create_pt(channel, max_pressure=psi, name=name)
 
     # Define the list of channels we'll read from (the incoming valve commands)
     read_from = [v.key for v in valve_commands]
@@ -160,7 +165,7 @@ def main():
     loop = sy.Loop(sy.Rate.HZ * 50)
 
     # Set up the initial state of the valves to 0x00 (closed).
-    sensor_states = {v.key: np.uint8(False) for v in valve_responses}
+    sensor_states = {v.key: np.array([np.uint8(False)]) for v in valve_responses}
 
     # Open a streamer to listen for incoming valve commands.
     with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
@@ -178,40 +183,49 @@ def main():
                         # We write this state to the corresponding response channel.
                         valve_response_channel = command_to_response[channel_key]
                         valve_command = frame[channel_key][-1]  # get the most recent command for this channel
-                        sensor_states[valve_response_channel.key] = np.uint8(valve_command > 0.9)   #write back the response to the valve opening/closing
+                        sensor_states[valve_response_channel.key] = np.array([np.uint8(valve_command > 0.9)])   #write back the response to the valve opening/closing
 
-                        if channel_key == "Valve_1_command":
+                        cmd_name = command_names.get(channel_key, "")
+                        if cmd_name == "Valve_1_command":
                             if valve_command > 0.9:
-                                servo.get_servo("Servo_1").set_angle(90)  # example of controlling a servo based on a valve command
+                                servo.get_servo("Servo_1").set_angle(90)
                                 print("Opening Valve 1")
                             else:
                                 servo.get_servo("Servo_1").set_angle(0)
                                 print("Closing Valve 1")
-                        elif channel_key == "Valve_2_command":
+                        elif cmd_name == "Valve_2_command":
                             if valve_command > 0.9:
+                                servo.get_servo("Servo_2").set_angle(90)
                                 print("Opening Valve 2")
-                        elif channel_key == "Valve_3_command":
+                            else:
+                                servo.get_servo("Servo_2").set_angle(0)
+                                print("Closing Valve 2")
+                        elif cmd_name == "Valve_3_command":
                             if valve_command > 0.9:
+                                servo.get_servo("Servo_3").set_angle(90)
                                 print("Opening Valve 3")
+                            else:
+                                servo.get_servo("Servo_3").set_angle(0)
+                                print("Closing Valve 3")
 
                 #handle writing sensor data. 
-                for j, channel in enumerate(sensors):
+                for channel in sensors:
                     #write sine wave to sensor channels shifted by the sensor index. 
                     #sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100) # change this to write to sensor channel
-                    if channel.key == "PT1":
-                        sensor_states[channel.key] = pt.get_pt("PT1").get_pressure()   # example of reading from a pressure transducer and writing that value to the corresponding sensor channel
+                    if channel.name == "PT1":
+                        sensor_states[channel.key] = np.array([pt.get_pt("PT1").get_pressure()])   # example of reading from a pressure transducer and writing that value to the corresponding sensor channel
                         #np.float32(100 + 10 * np.sin(i / 1000))
-                    elif channel.key == "PT2":
-                        sensor_states[channel.key] = pt.get_pt("PT2").get_pressure()
-                    elif channel.key == "PT3":
-                        sensor_states[channel.key] = pt.get_pt("PT3").get_pressure()
-                    elif channel.key == "Load_Cell":
-                        sensor_states[channel.key] = np.float32(50 + 5 * np.sin(i / 2000))
-                    elif channel.key == "TC":
+                    elif channel.name == "PT2":
+                        sensor_states[channel.key] = np.array([pt.get_pt("PT2").get_pressure()])
+                    elif channel.name == "PT3":
+                        sensor_states[channel.key] = np.array([pt.get_pt("PT3").get_pressure()])
+                    elif channel.name == "Load_Cell":
+                        sensor_states[channel.key] = np.array([0.0]); #np.float32(50 + 5 * np.sin(i / 2000))
+                    elif channel.name == "TC":
                         #sensor_states[channel.key] = np.float32(25 + 10 * np.cos(i / 1500))
-                        sensor_states[channel.key] = thermo.read_temp()   # example of reading from a thermocouple and writing that value to the corresponding sensor channel
+                        sensor_states[channel.key] = np.array([thermo.read_temp()])   # example of reading from a thermocouple and writing that value to the corresponding sensor channel
 
-                sensor_states[sensor_time_channel.key] = sy.TimeStamp.now()
+                sensor_states[sensor_time_channel.key] = np.array([sy.TimeStamp.now()])
                 writer.write(sensor_states)
                 i += 1
 
