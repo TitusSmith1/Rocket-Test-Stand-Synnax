@@ -195,35 +195,12 @@ def main():
                 if frame is not None:   #if we've received a command, update the state of the corresponding valve
                     for channel_key in frame.channels:
                         # 1 is open, 0 is closed
-                        #if the command channel has a value greater than 0.9, we consider the valve to be open (1), otherwise it's closed (0). 
-                        # We write this state to the corresponding response channel.
+                        #if the command channel has a value greater than 0.9, we consider the valve to be open (1), otherwise it's closed (0).
                         valve_response_channel = command_to_response[channel_key]
                         valve_command = frame[channel_key][-1]  # get the most recent command for this channel
-                        sensor_states[valve_response_channel.key] = np.array([np.uint8(valve_command > 0.9)])   #write back the response to the valve opening/closing
 
                         cmd_name = command_names.get(channel_key, "")
-                        if cmd_name == "Valve_1_command":
-                            if valve_command > 0.9:# open the fuel servo
-                                servo.get_servo("Servo_1").set_angle(8)
-                                print("Opening Valve 1 fuel")
-                            else:   #close the fuel servo
-                                servo.get_servo("Servo_1").set_angle(88)
-                                print("Closing Valve 1 fuel")
-                        elif cmd_name == "Valve_2_command":
-                            if valve_command > 0.9:#open the oxigen servo
-                                servo.get_servo("Servo_2").set_angle(8)
-                                print("Opening Valve 2 oxygen")
-                            else:   #close the oxygen servo
-                                servo.get_servo("Servo_2").set_angle(90)
-                                print("Closing Valve 2")
-                        elif cmd_name == "Valve_3_command":
-                            if valve_command > 0.9: #open the pressurization servo
-                                servo.get_servo("Servo_3").set_angle(5)
-                                print("Opening Valve 3 pressurization")
-                            else: #close the pressurization servo
-                                servo.get_servo("Servo_3").set_angle(88)
-                                print("Closing Valve 3 pressurization")
-                        elif cmd_name == "Igniter_command":
+                        if cmd_name == "Igniter_command":
                             if valve_command > 0.9 and not igniter_command_last:
                                 igniter_armed = not igniter_armed
                                 if igniter_armed:
@@ -237,24 +214,47 @@ def main():
                                 igniter_command_last = False
                             sensor_states[valve_response_channel.key] = np.array([np.uint8(igniter_armed)])
                             igniter_command_last = valve_command > 0.9
-                        elif cmd_name == "Hotfire_command":
-                            if valve_command > 0.9 and not hotfire_active:
-                                print("Hotfire command received: opening valves (Valve_2 and Valve_3 immediately, Valve_1 delayed by 0.5s) for 10 seconds")
-                                # Open Servo_2 and Servo_3 immediately
-                                servo.get_servo("Servo_2").set_angle(8)
-                                servo.get_servo("Servo_3").set_angle(5)
-                                # Update response channels for Valve_2 and Valve_3
-                                valve2_response = command_to_response[valve_commands[1].key]  # Valve_2
-                                valve3_response = command_to_response[valve_commands[2].key]  # Valve_3
-                                sensor_states[valve2_response.key] = np.array([np.uint8(True)])
-                                sensor_states[valve3_response.key] = np.array([np.uint8(True)])
-                                # Set delay for Servo_1
-                                servo1_delay_start = time.monotonic()
-                                hotfire_active = True
-                                hotfire_start = time.monotonic()
-                            elif valve_command <= 0.9 and hotfire_active:
-                                # command was released before the hotfire routine completed
-                                print("Hotfire command released; routine will continue until timeout")
+                        else:
+                            sensor_states[valve_response_channel.key] = np.array([np.uint8(valve_command > 0.9)])   # write back the response to the valve opening/closing
+                            if cmd_name == "Valve_1_command":
+                                if valve_command > 0.9:# open the fuel servo
+                                    servo.get_servo("Servo_1").set_angle(8)
+                                    print("Opening Valve 1 fuel")
+                                else:   #close the fuel servo
+                                    servo.get_servo("Servo_1").set_angle(88)
+                                    print("Closing Valve 1 fuel")
+                            elif cmd_name == "Valve_2_command":
+                                if valve_command > 0.9:#open the oxigen servo
+                                    servo.get_servo("Servo_2").set_angle(8)
+                                    print("Opening Valve 2 oxygen")
+                                else:   #close the oxygen servo
+                                    servo.get_servo("Servo_2").set_angle(90)
+                                    print("Closing Valve 2")
+                            elif cmd_name == "Valve_3_command":
+                                if valve_command > 0.9: #open the pressurization servo
+                                    servo.get_servo("Servo_3").set_angle(5)
+                                    print("Opening Valve 3 pressurization")
+                                else: #close the pressurization servo
+                                    servo.get_servo("Servo_3").set_angle(88)
+                                    print("Closing Valve 3 pressurization")
+                            elif cmd_name == "Hotfire_command":
+                                if valve_command > 0.9 and not hotfire_active:
+                                    print("Hotfire command received: opening valves (Valve_2 and Valve_3 immediately, Valve_1 delayed by 0.5s) for 10 seconds")
+                                    # Open Servo_2 and Servo_3 immediately
+                                    servo.get_servo("Servo_2").set_angle(8)
+                                    servo.get_servo("Servo_3").set_angle(5)
+                                    # Update response channels for Valve_2 and Valve_3
+                                    valve2_response = command_to_response[valve_commands[1].key]  # Valve_2
+                                    valve3_response = command_to_response[valve_commands[2].key]  # Valve_3
+                                    sensor_states[valve2_response.key] = np.array([np.uint8(True)])
+                                    sensor_states[valve3_response.key] = np.array([np.uint8(True)])
+                                    # Set delay for Servo_1
+                                    servo1_delay_start = time.monotonic()
+                                    hotfire_active = True
+                                    hotfire_start = time.monotonic()
+                                elif valve_command <= 0.9 and hotfire_active:
+                                    # command was released before the hotfire routine completed
+                                    print("Hotfire command released; routine will continue until timeout")
 
                 if hotfire_active and servo1_delay_start is not None and time.monotonic() - servo1_delay_start >= fuel_delay:
                     servo.get_servo("Servo_1").set_angle(8)
