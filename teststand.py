@@ -41,9 +41,9 @@ LOAD_CELL_READINGS = 5
 # --- MULTI-DEVICE CONFIGURATION ---
 # Define your PTs: (adc_channel, max_pressure_psi, name)
 PT_CONFIG = [
-    (0, 500.0, "PT1"),  # Channel 0, 500 PSI max
-    (1, 300.0, "PT2"),  # Channel 1, 300 PSI max
-    (2, 100.0, "PT3"),  # Channel 2, 100 PSI max
+    (0, 300.0, "PT1"),  # Channel 0, 500 PSI max
+    (1, 500.0, "PT2"),  # Channel 1, 300 PSI max
+    (2, 500.0, "PT3"),  # Channel 2, 100 PSI max
 ]
 
 # Define your servos: (gpio_pin, name)
@@ -179,9 +179,9 @@ def main():
     igniter_command_last = False
     hotfire_active = False
     hotfire_start = None
-    hotfire_duration = 10.0
+    hotfire_duration = 11.25
     servo1_delay_start = None
-    fuel_delay = 0.5
+    fuel_delay = 0.25
 
     # Open a streamer to listen for incoming valve commands.
     with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
@@ -221,21 +221,21 @@ def main():
                                     servo.get_servo("Servo_1").set_angle(8)
                                     print("Opening Valve 1 fuel")
                                 else:   #close the fuel servo
-                                    servo.get_servo("Servo_1").set_angle(88)
+                                    servo.get_servo("Servo_1").set_angle(92)
                                     print("Closing Valve 1 fuel")
                             elif cmd_name == "Valve_2_command":
                                 if valve_command > 0.9:#open the oxigen servo
                                     servo.get_servo("Servo_2").set_angle(8)
                                     print("Opening Valve 2 oxygen")
                                 else:   #close the oxygen servo
-                                    servo.get_servo("Servo_2").set_angle(90)
+                                    servo.get_servo("Servo_2").set_angle(94)
                                     print("Closing Valve 2")
                             elif cmd_name == "Valve_3_command":
                                 if valve_command > 0.9: #open the pressurization servo
                                     servo.get_servo("Servo_3").set_angle(5)
                                     print("Opening Valve 3 pressurization")
                                 else: #close the pressurization servo
-                                    servo.get_servo("Servo_3").set_angle(88)
+                                    servo.get_servo("Servo_3").set_angle(92)
                                     print("Closing Valve 3 pressurization")
                             elif cmd_name == "Hotfire_command":
                                 if valve_command > 0.9 and not hotfire_active:
@@ -267,9 +267,9 @@ def main():
                 if hotfire_active and hotfire_start is not None:
                     if time.monotonic() - hotfire_start >= hotfire_duration:
                         print("Hotfire routine complete: closing all valves")
-                        servo.get_servo("Servo_1").set_angle(88)
-                        servo.get_servo("Servo_2").set_angle(90)
-                        servo.get_servo("Servo_3").set_angle(88)
+                        servo.get_servo("Servo_1").set_angle(92)
+                        servo.get_servo("Servo_2").set_angle(94)
+                        servo.get_servo("Servo_3").set_angle(92)
                         # Update response channels for all valves to closed
                         valve1_response = command_to_response[valve_commands[0].key]
                         valve2_response = command_to_response[valve_commands[1].key]

@@ -13,6 +13,9 @@ GPIO.setmode(GPIO.BCM)
 DAT_PIN = 6
 CLK_PIN = 5
 
+tare_offset =0
+refference = 0.00002594216
+
 def get_average_reading(hx, num_readings=5):
     """Fetches raw data from the sensor safely."""
     
@@ -24,7 +27,7 @@ def get_average_reading(hx, num_readings=5):
         valid_data = [val for val in raw_data if isinstance(val, (int, float))]
         if not valid_data:
             return 0
-        return sum(valid_data) / len(valid_data)
+        return -((sum(valid_data) / len(valid_data))-tare_offset)*refference
         
     # Handle if the library version returns a single averaged number (or False)
     if raw_data is not False and isinstance(raw_data, (int, float)):
@@ -51,16 +54,6 @@ def setup_scale():
 def main():
     hx, tare_offset = setup_scale()
     
-    # ==========================================
-    # CALIBRATION (The "Reference Unit")
-    # ==========================================
-    # 1. Leave this at 1 for your first run.
-    # 2. Place a known weight on the scale (e.g., exactly 1000g).
-    # 3. Look at the Current Weight printed in the console.
-    # 4. Divide that console number by your known weight.
-    # 5. Change the '1' below to your new calculated number.
-    # ==========================================
-    reference_unit = 1 
     
     try:
         while True:
@@ -68,7 +61,7 @@ def main():
             current_raw = get_average_reading(hx, 5)
             
             # Subtract the tare offset, then divide by the calibration unit
-            weight = (current_raw - tare_offset) / reference_unit
+            weight = get_average_reading(hx, 5)
             
             print(f"Current Weight: {weight:.2f}")
             time.sleep(0.5)
