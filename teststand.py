@@ -189,6 +189,8 @@ def main():
         # Open a writer to write data to Synnax.
         with client.open_writer(sy.TimeStamp.now(), write_to) as writer:
             start = sy.TimeStamp.now()
+            # Track the igniter response channel key so we can update it from the module
+            igniter_response_channel_key = valve_responses[3].key
             while loop.wait():  # run this loop at the defined rate of 50 Hz
                 # If we've received a command, update the state of the corresponding valve.
                 frame = streamer.read(timeout=0)    #read any incoming valve commands, but don't wait if there are none (timeout=0)
@@ -201,6 +203,7 @@ def main():
 
                         cmd_name = command_names.get(channel_key, "")
                         if cmd_name == "Igniter_command":
+                            # Igniter is controlled independently from hotfire.
                             if valve_command > 0.9 and not igniter_command_last:
                                 igniter_armed = not igniter_armed
                                 if igniter_armed:
@@ -212,8 +215,30 @@ def main():
                             elif valve_command <= 0.9 and igniter_command_last:
                                 # Clear the rising-edge tracker so the next press can toggle again.
                                 igniter_command_last = False
-                            sensor_states[valve_response_channel.key] = np.array([np.uint8(igniter_armed)])
+                            # Report the actual igniter hardware status (non-blocking)
+                            sensor_states[valve_response_channel.key] = np.array([np.uint8(igniter.is_igniter_on())])
                             igniter_command_last = valve_command > 0.9
+                        elif cmd_name == "Hotfire_command":
+                            # Hotfire only manages the valve sequence; it does not alter igniter state.
+                            sensor_states[valve_response_channel.key] = np.array([np.uint8(valve_command > 0.9)])
+                            if valve_command > 0.9 and not hotfire_active:
+                                print("Hotfire command received: opening valves (Valve_2 and Valve_3 immediately, Valve_1 delayed by 0.5s) for 10 seconds")
+                                print("Igniter remains independent of hotfire")
+                                # Open Servo_2 and Servo_3 immediately
+                                servo.get_servo("Servo_2").set_angle(8)
+                                servo.get_servo("Servo_3").set_angle(5)
+                                # Update response channels for Valve_2 and Valve_3
+                                valve2_response = command_to_response[valve_commands[1].key]  # Valve_2
+                                valve3_response = command_to_response[valve_commands[2].key]  # Valve_3
+                                sensor_states[valve2_response.key] = np.array([np.uint8(True)])
+                                sensor_states[valve3_response.key] = np.array([np.uint8(True)])
+                                # Set delay for Servo_1
+                                servo1_delay_start = time.monotonic()
+                                hotfire_active = True
+                                hotfire_start = time.monotonic()
+                            elif valve_command <= 0.9 and hotfire_active:
+                                # command was released before the hotfire routine completed
+                                print("Hotfire command released; routine will continue until timeout")
                         else:
                             sensor_states[valve_response_channel.key] = np.array([np.uint8(valve_command > 0.9)])   # write back the response to the valve opening/closing
                             if cmd_name == "Valve_1_command":
@@ -237,24 +262,6 @@ def main():
                                 else: #close the pressurization servo
                                     servo.get_servo("Servo_3").set_angle(92)
                                     print("Closing Valve 3 pressurization")
-                            elif cmd_name == "Hotfire_command":
-                                if valve_command > 0.9 and not hotfire_active:
-                                    print("Hotfire command received: opening valves (Valve_2 and Valve_3 immediately, Valve_1 delayed by 0.5s) for 10 seconds")
-                                    # Open Servo_2 and Servo_3 immediately
-                                    servo.get_servo("Servo_2").set_angle(8)
-                                    servo.get_servo("Servo_3").set_angle(5)
-                                    # Update response channels for Valve_2 and Valve_3
-                                    valve2_response = command_to_response[valve_commands[1].key]  # Valve_2
-                                    valve3_response = command_to_response[valve_commands[2].key]  # Valve_3
-                                    sensor_states[valve2_response.key] = np.array([np.uint8(True)])
-                                    sensor_states[valve3_response.key] = np.array([np.uint8(True)])
-                                    # Set delay for Servo_1
-                                    servo1_delay_start = time.monotonic()
-                                    hotfire_active = True
-                                    hotfire_start = time.monotonic()
-                                elif valve_command <= 0.9 and hotfire_active:
-                                    # command was released before the hotfire routine completed
-                                    print("Hotfire command released; routine will continue until timeout")
 
                 if hotfire_active and servo1_delay_start is not None and time.monotonic() - servo1_delay_start >= fuel_delay:
                     servo.get_servo("Servo_1").set_angle(8)
@@ -306,6 +313,8 @@ def main():
                             sensor_states[channel.key] = np.array([0.0], dtype=np.float32)
 
                 sensor_states[sensor_time_channel.key] = np.array([sy.TimeStamp.now()])
+                # Ensure the igniter response channel reflects the real hardware state every loop
+                sensor_states[igniter_response_channel_key] = np.array([np.uint8(igniter.is_igniter_on())])
                 writer.write(sensor_states)
                 i += 1
 
