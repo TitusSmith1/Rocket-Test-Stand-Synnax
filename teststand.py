@@ -205,15 +205,13 @@ def main():
                         if cmd_name == "Igniter_command":
                             # Igniter is controlled independently from hotfire.
                             if valve_command > 0.9 and not igniter_command_last:
-                                igniter_armed = not igniter_armed
-                                if igniter_armed:
-                                    print("Igniter command received: toggling ON and firing igniter")
-                                    igniter.trigger_ignition()
-                                else:
-                                    print("Igniter command received: toggling OFF")
-                                    igniter.cancel_ignition()
+                                print("Igniter command received: firing igniter")
+                                igniter.trigger_ignition()
+                                igniter_armed = True
                             elif valve_command <= 0.9 and igniter_command_last:
-                                # Clear the rising-edge tracker so the next press can toggle again.
+                                print("Igniter command received: turning igniter OFF")
+                                igniter.cancel_ignition()
+                                igniter_armed = False
                                 igniter_command_last = False
                             # Report the actual igniter hardware status (non-blocking)
                             sensor_states[valve_response_channel.key] = np.array([np.uint8(igniter.is_igniter_on())])
