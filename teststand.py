@@ -179,7 +179,7 @@ def main():
     igniter_command_last = False
     hotfire_active = False
     hotfire_start = None
-    hotfire_duration = 11.25
+    hotfire_duration = 5.25
     servo1_delay_start = None
     fuel_delay = 0.25
 
